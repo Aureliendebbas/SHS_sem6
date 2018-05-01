@@ -17,7 +17,8 @@ def tokenizepage(pagetext) :
 
 
 def checkpage(pagetext, report):
-    tokens = tokenizepage(pagetext)
+    text = fetchPageData(pagetext)
+    tokens = tokenizepage(text)
     grade = 6.0
 
     grade -= checkentries(tokens, report)
@@ -100,7 +101,7 @@ def checkformat(tokens, report) :
     malus = 0
 
     for t in tokens : 
-        formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
+        formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
         if formats[0][0] == '' : 
            bullet_error += 1
         if formats[0][1] == '' : 
@@ -113,7 +114,7 @@ def checkformat(tokens, report) :
          malus += 0.25
 
     if date_error > 0 : 
-         report.write("No date"\n")
+         report.write("No date\n")
          malus += 0.25
 
     if slash_or_dot_error > 0 : 
@@ -249,10 +250,10 @@ if argc < 3:
     read_file  = open("LouiseMichel.txt", "r", encoding='latin-1')
     write_file = open("report.txt", "w")
 else:
-    read_file  = open(sys.argv[1], "r",  encoding='latin-1')
+    read_file = sys.argv[1] #= open(sys.argv[1], "r",  encoding='latin-1')
     write_file = open(sys.argv[2], "w")
 
-grade = checkpage(read_file.read(), write_file)
+grade = checkpage(read_file, write_file)
 if grade > 5.95:
     write_file.write("No relevant error found.\n")
 write_file.write("\n\nFINAL GRADE : " + str(grade) + " / 6.0\n")
