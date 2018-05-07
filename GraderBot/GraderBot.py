@@ -7,6 +7,7 @@ import hashlib
 from bs4 import BeautifulSoup
 
 baseurl = 'http://wikipast.epfl.ch/wikipast/'
+content = '==GraderBot Report==\n'
 
 def tokenizepage(pagetext) : 
     tokens = []
@@ -18,25 +19,25 @@ def tokenizepage(pagetext) :
     return tokens
 
 
-def checkpage(pagetext, report):
+def checkpage(pagetext):
     text = fetchPageData(pagetext)
     tokens = tokenizepage(text)
     grade = 6.0
 
-    grade -= checkentries(tokens, report)
+    grade -= checkentries(tokens)
 
     if len(tokens) <= 10:
         return 0.0
 
-    if checksource(tokens, report) > 0:
+    if checksource(tokens) > 0:
         grade -= 0.5
     
-    if not checklinkpages(tokens, report) :
+    if not checklinkpages(tokens) :
         grade -= 0.5
 
-    grade -=  checkformat(tokens, report) 
+    grade -=  checkformat(tokens)
 
-    if not checkhyperwords(tokens, report) : 
+    if not checkhyperwords(tokens) :
         grade -= 0.5 
 
 
@@ -44,29 +45,33 @@ def checkpage(pagetext, report):
     return max(grade, 0)
 
 
-def checksource(tokens, report):
+def checksource(tokens):
     r = '\*.*\[https?:\/\/w?w?w?\.?letemps[^\]]*\].*'
     p = re.compile(r)
     badsourced = 0
     index = 0
 
+    global content
+
     for t in tokens:
         match = p.match(t)
         if not match:
             badsourced += 1
-            report += ("Bad source at entry #" + str(index) + " : " + t + "\n")
+            content += ("\n*Bad source at entry #" + str(index) + " : " + t + "\n")
         index +=1
 
 
     return badsourced
 
 
-def checkentries(tokens, report):
+def checkentries(tokens):
     malus = 0
     malus += max(15 - len(tokens), 0)
 
+    global content
+
     if (len(tokens) < 15):
-        report += ("Only " + str(len(tokens)) + " entries when at least 15 are expected\n")
+        content += ("\n*Only " + str(len(tokens)) + " entries when at least 15 are expected\n")
 
     dates_isolator_expr = ['\* \[\[(.*)\]\] \/', '\*\[\[(.*)\]\]\:', '\*\[\[(.*)\]\]\/', '\*\[\[(.*)\]\] \/']
 
@@ -89,29 +94,31 @@ def checkentries(tokens, report):
     malus += round(chrono_count/2)/4.0
 
     if hyperword_count <= 4:
-        report += ("Insufficient use of hyperwords\n")
+        content += ("\n*Insufficient use of hyperwords\n")
 
     if chrono_count > 0:
-        report += (str(chrono_count) + " entries did not have a chronology\n")
+        content += ("\n*" + str(chrono_count) + " entries did not have a chronology\n")
 
     return min(malus, 4)
 
-def checkformat(tokens, report) : 
+def checkformat(tokens) :
     bullet_error = 0 
     date_error = 0
     slash_or_dot_error = 0 
     malus = 0
 
+    global content
+
     for t in tokens : 
         formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
         if formats[0][0] == '' :
-            report += ("No bullet point for line : " + t + "\n")
+            content += ("\n*No bullet point for line : " + t + "\n")
             bullet_error += 1
         if formats[0][1] == '' :
-            report += ("Error on date for line : " + t + "\n")
+            content += ("\n*Error on date for line : " + t + "\n")
             date_error += 1
         if formats[0][3] == '' or formats[0][4] == '':
-            report += ("Invalid dot and slash arrangement for line : " + t + "\n")
+            content += ("\n*Invalid dot and slash arrangement for line : " + t + "\n")
             slash_or_dot_error += 1
 
     if bullet_error > 0 :
@@ -129,23 +136,29 @@ def checkformat(tokens, report) :
         return malus 
 
 
-def checkhyperwords(tokens, report) : 
+def checkhyperwords(tokens) :
     hyperword_count_open = 0 
-    hyperword_count_close = 0 
+    hyperword_count_close = 0
+
+    global content
+
     for t in tokens:
         hyperword_count_open += t.count("[[")
         hyperword_count_close += t.count("]]")
 
     if  hyperword_count_open != hyperword_count_close : 
-        report += ('Syntax of hyperwords is not respected\n ')
+        content += ('\n*Syntax of hyperwords is not respected\n ')
         return False 
     if hyperword_count_close < 10 : 
-        report += ('Not enough hyperwords' + str(10) +'expected but' +str(hyperword_count_close) +'found \n' )
+        content += ('\n*Not enough hyperwords' + str(10) +'expected but' +str(hyperword_count_close) +'found \n' )
         return False
     return True
-def checklinkpages(tokens, report):
+def checklinkpages(tokens):
     link_pages_count = 0
-    current_page = 'Louise_Michel'
+    current_page = read_file
+
+    global content
+
     for t in tokens :
         if isValidEntry(t) : 
             line_links = getHyperLinks(t, '')
@@ -158,7 +171,7 @@ def checklinkpages(tokens, report):
                             link_pages_count += 1
 
     if link_pages_count < 5 : 
-        report += ("Only " + str(link_pages_count) + " linked pages are created / updated when at least 5 are expected\n") 
+        content += ("\nOnly " + str(link_pages_count) + " linked pages are created / updated when at least 5 are expected\n")
         return False  
     else : 
         return True            
@@ -268,14 +281,12 @@ edit_cookie.update(r3.cookies)
 
 argc = len(sys.argv)
 
-content = "==GraderBot Report==\n"
-
 read_file  = "Louise_Michel2"
 write_file = open("report.txt", "w")
 
-grade = checkpage(read_file, content)
+grade = checkpage(read_file)
 if grade > 5.95:
-    content += ("No relevant error found.\n")
+    content += ("\nNo relevant error found.\n")
 content += ("\n\nFINAL GRADE : " + str(grade) + " / 6.0\n")
 
 payload = {'action':'edit','assert':'user','format':'json','utf8':'','text':content,
