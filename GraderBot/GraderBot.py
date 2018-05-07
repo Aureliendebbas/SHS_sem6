@@ -6,6 +6,8 @@ import json
 import hashlib
 from bs4 import BeautifulSoup
 
+baseurl = 'http://wikipast.epfl.ch/wikipast/'
+
 def tokenizepage(pagetext) : 
     tokens = []
     tk = pagetext.split('\n')
@@ -52,7 +54,7 @@ def checksource(tokens, report):
         match = p.match(t)
         if not match:
             badsourced += 1
-            report.write("Bad source at entry #" + str(index) + " : " + t + "\n")
+            report += ("Bad source at entry #" + str(index) + " : " + t + "\n")
         index +=1
 
 
@@ -64,7 +66,7 @@ def checkentries(tokens, report):
     malus += max(15 - len(tokens), 0)
 
     if (len(tokens) < 15):
-        report.write("Only " + str(len(tokens)) + " entries when at least 15 are expected\n")
+        report += ("Only " + str(len(tokens)) + " entries when at least 15 are expected\n")
 
     dates_isolator_expr = ['\* \[\[(.*)\]\] \/', '\*\[\[(.*)\]\]\:', '\*\[\[(.*)\]\]\/', '\*\[\[(.*)\]\] \/']
 
@@ -87,10 +89,10 @@ def checkentries(tokens, report):
     malus += round(chrono_count/2)/4.0
 
     if hyperword_count <= 4:
-        report.write("Insufficient use of hyperwords\n")
+        report += ("Insufficient use of hyperwords\n")
 
     if chrono_count > 0:
-        report.write(str(chrono_count) + " entries did not have a chronology\n")
+        report += (str(chrono_count) + " entries did not have a chronology\n")
 
     return min(malus, 4)
 
@@ -102,23 +104,23 @@ def checkformat(tokens, report) :
 
     for t in tokens : 
         formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
-        if formats[0][0] == '' : 
-           bullet_error += 1
-        if formats[0][1] == '' : 
-           date_error += 1
-        if formats[0][3] == '' or formats[0][4] == '': 
+        if formats[0][0] == '' :
+            report += ("No bullet point for line : " + t + "\n")
+            bullet_error += 1
+        if formats[0][1] == '' :
+            report += ("Error on date for line : " + t + "\n")
+            date_error += 1
+        if formats[0][3] == '' or formats[0][4] == '':
+            report += ("Invalid dot and slash arrangement for line : " + t + "\n")
             slash_or_dot_error += 1
 
-    if bullet_error > 0 : 
-         report.write("No bullet\n")
+    if bullet_error > 0 :
          malus += 0.25
 
-    if date_error > 0 : 
-         report.write("No date\n")
+    if date_error > 0 :
          malus += 0.25
 
-    if slash_or_dot_error > 0 : 
-         report.write("No slash or dot\n")
+    if slash_or_dot_error > 0 :
          malus += 0.25
     
     if malus > 0.5 : 
@@ -135,10 +137,10 @@ def checkhyperwords(tokens, report) :
         hyperword_count_close += t.count("]]")
 
     if  hyperword_count_open != hyperword_count_close : 
-        report.write('Syntax of hyperwords is not respected\n ')
+        report += ('Syntax of hyperwords is not respected\n ')
         return False 
     if hyperword_count_close < 10 : 
-        report.write('Not enough hyperwords' + str(10) +'expected but' +str(hyperword_count_close) +'found \n' )
+        report += ('Not enough hyperwords' + str(10) +'expected but' +str(hyperword_count_close) +'found \n' )
         return False
     return True
 def checklinkpages(tokens, report):
@@ -156,7 +158,7 @@ def checklinkpages(tokens, report):
                             link_pages_count += 1
 
     if link_pages_count < 5 : 
-        report.write("Only " + str(link_pages_count) + " linked pages are created / updated when at least 5 are expected\n") 
+        report += ("Only " + str(link_pages_count) + " linked pages are created / updated when at least 5 are expected\n") 
         return False  
     else : 
         return True            
@@ -179,7 +181,6 @@ sous la forme d'une string
 				le titre de la page wikipast où aller chercher les données.
 '''
 def fetchPageData(pageName):
-    baseurl = 'http://wikipast.epfl.ch/wikipast/'
     result=requests.post(baseurl+'api.php?action=query&titles='+pageName+'&export&exportnowrap')
     soup=BeautifulSoup(result.text, "lxml")
     pageData=''
@@ -244,18 +245,39 @@ def areEntrySimilar(entry1, entry2):
 	
 	return (listOfHyperLinks1 == listOfHyperLinks2) and (listOfReferences1 == listOfReferences2)
 
+user='Vlaedr'
+passw='Alextall007'
+summary='GraderBot Notation'
+
+# Login request
+payload={'action':'query','format':'json','utf8':'','meta':'tokens','type':'login'}
+r1=requests.post(baseurl + 'api.php', data=payload)
+
+#login confirm
+login_token=r1.json()['query']['tokens']['logintoken']
+payload={'action':'login','format':'json','utf8':'','lgname':user,'lgpassword':passw,'lgtoken':login_token}
+r2=requests.post(baseurl + 'api.php', data=payload, cookies=r1.cookies)
+
+#get edit token2
+params3='?format=json&action=query&meta=tokens&continue='
+r3=requests.get(baseurl + 'api.php' + params3, cookies=r2.cookies)
+edit_token=r3.json()['query']['tokens']['csrftoken']
+
+edit_cookie=r2.cookies.copy()
+edit_cookie.update(r3.cookies)
+
 argc = len(sys.argv)
 
-if argc < 3:
-    read_file  = open("LouiseMichel.txt", "r", encoding='latin-1')
-    write_file = open("report.txt", "w")
-else:
-    read_file = sys.argv[1] #= open(sys.argv[1], "r",  encoding='latin-1')
-    write_file = open(sys.argv[2], "w")
+content = "==GraderBot Report==\n"
 
-grade = checkpage(read_file, write_file)
+read_file  = "Louise_Michel2"
+write_file = open("report.txt", "w")
+
+grade = checkpage(read_file, content)
 if grade > 5.95:
-    write_file.write("No relevant error found.\n")
-write_file.write("\n\nFINAL GRADE : " + str(grade) + " / 6.0\n")
+    content += ("No relevant error found.\n")
+content += ("\n\nFINAL GRADE : " + str(grade) + " / 6.0\n")
 
-
+payload = {'action':'edit','assert':'user','format':'json','utf8':'','text':content,
+           'summary':summary,'title':('Discussion:' + read_file),'token':edit_token}
+r4=requests.post(baseurl+'api.php',data=payload,cookies=edit_cookie)
