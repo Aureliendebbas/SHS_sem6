@@ -12,9 +12,15 @@ content = '==GraderBot Report==\n'
 def tokenizepage(pagetext) : 
     tokens = []
     tk = pagetext.split('\n')
+    ignore = False
     for t in tk:
         if t:
-            if t[0] == '*':
+            if "==" in t:
+                if "Biographie" in t:
+                    ignore = False
+                else:
+                    ignore = True
+            if (t[0] == '*') and not ignore:
                 tokens.append(t)
     return tokens
 
@@ -32,7 +38,7 @@ def checkpage(pagetext):
     if checksource(tokens) > 0:
         grade -= 0.5
     
-    if not checklinkpages(tokens) :
+    if not checklinkpages(tokens, pagetext) :
         grade -= 0.5
 
     grade -=  checkformat(tokens)
@@ -109,27 +115,30 @@ def checkformat(tokens) :
 
     global content
 
-    for t in tokens : 
-        formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
-        if formats[0][0] == '' :
-            content += ("\n*No bullet point for line : " + t + "\n")
-            bullet_error += 1
-        if formats[0][1] == '' :
-            content += ("\n*Error on date for line : " + t + "\n")
-            date_error += 1
-        if formats[0][3] == '' or formats[0][4] == '':
-            content += ("\n*Invalid dot and slash arrangement for line : " + t + "\n")
-            slash_or_dot_error += 1
+    for t in tokens :
+        try:
+            formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
+            if formats[0][0] == '' :
+                content += ("\n*No bullet point for line : " + t + "\n")
+                bullet_error += 1
+            if formats[0][1] == '' :
+                content += ("\n*Error on date for line : " + t + "\n")
+                date_error += 1
+            if formats[0][3] == '' or formats[0][4] == '':
+                content += ("\n*Invalid dot and slash arrangement for line : " + t + "\n")
+                slash_or_dot_error += 1
+            if bullet_error > 0:
+               malus += 0.25
 
-    if bullet_error > 0 :
-         malus += 0.25
+            if date_error > 0:
+                malus += 0.25
 
-    if date_error > 0 :
-         malus += 0.25
+            if slash_or_dot_error > 0:
+                malus += 0.25
+        except:
+            malus += 0.5
+            content += ("\n*Format completely invalid for line : " + t + "\n")
 
-    if slash_or_dot_error > 0 :
-         malus += 0.25
-    
     if malus > 0.5 : 
         return 0.5
     else : 
@@ -153,9 +162,9 @@ def checkhyperwords(tokens) :
         content += ('\n*Not enough hyperwords' + str(10) +'expected but' +str(hyperword_count_close) +'found \n' )
         return False
     return True
-def checklinkpages(tokens):
+def checklinkpages(tokens, bio):
     link_pages_count = 0
-    current_page = read_file
+    current_page = bio
 
     global content
 
@@ -281,14 +290,20 @@ edit_cookie.update(r3.cookies)
 
 argc = len(sys.argv)
 
-read_file  = "Louise_Michel2"
-write_file = open("report.txt", "w")
+biopage = "Biographies"
+biopage_txt = fetchPageData(biopage)
 
-grade = checkpage(read_file)
-if grade > 5.95:
-    content += ("\nNo relevant error found.\n")
-content += ("\n\nFINAL GRADE : " + str(grade) + " / 6.0\n")
+bios = re.findall("\|\s*?\[\[(.*?)\]\]" ,biopage_txt)
 
-payload = {'action':'edit','assert':'user','format':'json','utf8':'','text':content,
-           'summary':summary,'title':('Discussion:' + read_file),'token':edit_token}
-r4=requests.post(baseurl+'api.php',data=payload,cookies=edit_cookie)
+for b in bios:
+    content = ""
+    b = b.replace(' ', '_')
+    print(b + '\n')
+    grade = checkpage(b)
+    if grade > 5.95:
+        content += ("\nNo relevant error found.\n")
+    content += ("\n\nFINAL GRADE : " + str(grade) + " / 6.0\n")
+
+    payload = {'action': 'edit', 'assert': 'user', 'format': 'json', 'utf8': '', 'text': content,
+               'summary': summary, 'title': ('Discussion:' + b), 'token': edit_token}
+    r4 = requests.post(baseurl + 'api.php', data=payload, cookies=edit_cookie)
