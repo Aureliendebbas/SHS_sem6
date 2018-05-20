@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 baseurl = 'http://wikipast.epfl.ch/wikipast/'
 content = '==GraderBot Report==\n'
 
-def tokenizepage(pagetext) : 
+def tokenizepage(pagetext) :
     tokens = []
     tk = pagetext.split('\n')
     ignore = False
@@ -37,14 +37,14 @@ def checkpage(pagetext):
 
     if checksource(tokens) > 0:
         grade -= 0.5
-    
+
     if not checklinkpages(tokens, pagetext) :
         grade -= 0.5
 
     grade -=  checkformat(tokens)
 
     if not checkhyperwords(tokens) :
-        grade -= 0.5 
+        grade -= 0.5
 
 
 
@@ -108,23 +108,23 @@ def checkentries(tokens):
     return min(malus, 4)
 
 def checkformat(tokens) :
-    bullet_error = 0 
+    bullet_error = 0
     date_error = 0
-    slash_or_dot_error = 0 
+    slash_or_dot_error = 0
     malus = 0
 
     global content
 
     for t in tokens :
         try:
-            formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)(\[.+\]\s*)$',t)
-            if formats[0][0] == '' :
+            formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)',t)
+            if formats[0][0] != '*' :
                 content += ("\n*No bullet point for line : " + t + "\n")
                 bullet_error += 1
             if formats[0][1] == '' :
                 content += ("\n*Error on date for line : " + t + "\n")
                 date_error += 1
-            if formats[0][3] == '' or formats[0][4] == '':
+            if formats[0][3] == '' and formats[0][4] == '' :
                 content += ("\n*Invalid dot and slash arrangement for line : " + t + "\n")
                 slash_or_dot_error += 1
             if bullet_error > 0:
@@ -139,14 +139,14 @@ def checkformat(tokens) :
             malus += 0.5
             content += ("\n*Format completely invalid for line : " + t + "\n")
 
-    if malus > 0.5 : 
+    if malus > 0.5 :
         return 0.5
-    else : 
-        return malus 
+    else :
+        return malus
 
 
 def checkhyperwords(tokens) :
-    hyperword_count_open = 0 
+    hyperword_count_open = 0
     hyperword_count_close = 0
 
     global content
@@ -155,10 +155,10 @@ def checkhyperwords(tokens) :
         hyperword_count_open += t.count("[[")
         hyperword_count_close += t.count("]]")
 
-    if  hyperword_count_open != hyperword_count_close : 
+    if  hyperword_count_open != hyperword_count_close :
         content += ('\n*Syntax of hyperwords is not respected\n ')
-        return False 
-    if hyperword_count_close < 10 : 
+        return False
+    if hyperword_count_close < 10 :
         content += ('\n*Not enough hyperwords' + str(10) +'expected but' +str(hyperword_count_close) +'found \n' )
         return False
     return True
@@ -169,21 +169,21 @@ def checklinkpages(tokens, bio):
     global content
 
     for t in tokens :
-        if isValidEntry(t) : 
+        if isValidEntry(t) :
             line_links = getHyperLinks(t, '')
-            for link in line_links : 
-                if  link != current_page : #isNewPage(link, ) && Il faut passer la liste de pages a vérifier, on ne l'a pas encore pour le test ! 
+            for link in line_links :
+                if  link != current_page : #isNewPage(link, ) && Il faut passer la liste de pages a vérifier, on ne l'a pas encore pour le test !
                     page = fetchPageData(link)
                     new_page_token = tokenizepage(page)
-                    for new_tokens in new_page_token : 
-                        if areEntrySimilar(t, new_tokens) : 
+                    for new_tokens in new_page_token :
+                        if areEntrySimilar(t, new_tokens) :
                             link_pages_count += 1
 
-    if link_pages_count < 5 : 
+    if link_pages_count < 5 :
         content += ("\nOnly " + str(link_pages_count) + " linked pages are created / updated when at least 5 are expected\n")
-        return False  
-    else : 
-        return True            
+        return False
+    else :
+        return True
 
 '''
 Teste si la page donnée en argument existe déjà.
@@ -197,7 +197,7 @@ def isNewPage(name, listOfPagesToCompare):
 
 '''
 À l'aide du titre de la page donné en argument,
-récupère les données de cette page, 
+récupère les données de cette page,
 sous la forme d'une string
 @param pageName : String
 				le titre de la page wikipast où aller chercher les données.
@@ -212,7 +212,7 @@ def fetchPageData(pageName):
     return pageData
 
 '''
-Vérifie que l'entrée donnée en argument soit bien une 
+Vérifie que l'entrée donnée en argument soit bien une
 entrée biographie (c'est à dire une entrée à puce commencant par une date)
 @param entre : String
 				l'entrée à vérifier.
@@ -225,7 +225,7 @@ def isValidEntry(entry):
 
 '''
 retourne une liste d'hyperLinks contenu
-dans cette entrée sous une forme de liste 
+dans cette entrée sous une forme de liste
 de String, mais en excluant de cette liste l'argument
 toExclude.
 '''
@@ -237,7 +237,7 @@ def getHyperLinks(entry, toExclude):
 
 '''
 retourne une liste d'hyperLinks contenu
-dans cette entrée sous une forme de liste 
+dans cette entrée sous une forme de liste
 de String, mais en excluant de cette liste l'argument
 toExclude.
 '''
@@ -264,7 +264,7 @@ def areEntrySimilar(entry1, entry2):
 	listOfHyperLinks2 = getHyperLinks(entry2, '')
 	listOfReferences1 = getReferences(entry1)
 	listOfReferences2 = getReferences(entry2)
-	
+
 	return (listOfHyperLinks1 == listOfHyperLinks2) and (listOfReferences1 == listOfReferences2)
 
 user='Vlaedr'
