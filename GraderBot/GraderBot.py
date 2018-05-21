@@ -79,7 +79,7 @@ def checkentries(tokens):
     if (len(tokens) < 15):
         content += ("\n*Only " + str(len(tokens)) + " entries when at least 15 are expected\n")
 
-    dates_isolator_expr = ['\* \[\[(.*)\]\] \/', '\*\[\[(.*)\]\]\:', '\*\[\[(.*)\]\]\/', '\*\[\[(.*)\]\] \/']
+    dates_isolator_expr = ['\* \[\[(.*)\]\] \/', '\*\[\[(.*)\]\]\:', '\*\[\[(.*)\]\]\/', '\*\[\[(.*)\]\] \/', '\*\s*\[\[([0-9]{4}).*']
 
     hyperword_count = 0
     chrono_count    = 0
@@ -117,13 +117,15 @@ def checkformat(tokens) :
 
     for t in tokens :
         try:
-            formats = re.findall('(\*)(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)',t)
+            formats = re.findall('(\*)\s*(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?\-?(\[\[\d{4}\.?\d{0,2}\.?\d{0,2}\]\])?[^\/]*(\/?)[^\.]*(\.?)\d*(.*)',t)
             if formats[0][0] != '*' :
                 content += ("\n*No bullet point for line : " + t + "\n")
                 bullet_error += 1
             if formats[0][1] == '' :
-                content += ("\n*Error on date for line : " + t + "\n")
-                date_error += 1
+                date = re.findall('\*\s*\[\[([0-9]*).*', t)
+                if not len(date) == 0:
+                    content += ("\n*Error on date for line : " + t + "\n")
+                    date_error += 1
             if formats[0][3] == '' and formats[0][4] == '' :
                 content += ("\n*Invalid dot and slash arrangement for line : " + t + "\n")
                 slash_or_dot_error += 1
