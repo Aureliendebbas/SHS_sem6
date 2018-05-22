@@ -296,6 +296,7 @@ biopage = "Biographies"
 biopage_txt = fetchPageData(biopage)
 
 bios = re.findall("\|\s*?\[\[(.*?)\]\]" ,biopage_txt)
+bios.append('Louise_Michel2')
 
 for b in bios:
     content = ""
